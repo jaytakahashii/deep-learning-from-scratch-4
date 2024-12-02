@@ -70,5 +70,6 @@ plt.ylabel('Average Rates')
 plt.xlabel('Steps')
 for key, avg_rates in results.items():
     plt.plot(avg_rates, label=key)
+plt.title('Comparison of sample mean and update with fixed value alpha')
 plt.legend()
 plt.show()

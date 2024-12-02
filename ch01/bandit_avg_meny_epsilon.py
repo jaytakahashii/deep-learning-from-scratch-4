@@ -30,5 +30,5 @@ for i, epsilon in enumerate(epsilon_values):
 plt.ylabel('Rates')
 plt.xlabel('Steps')
 plt.legend()  # ラベルを表示
-plt.title('Comparison of Epsilon Values')
+plt.title('Number of steps and win rate for different epsilon')
 plt.show()
