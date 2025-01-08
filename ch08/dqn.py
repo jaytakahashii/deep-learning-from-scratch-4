@@ -8,13 +8,6 @@ from dezero import Model
 from dezero import optimizers
 import dezero.functions as F
 import dezero.layers as L
-import dezero.transforms as T
-
-# === ToInt クラスを再定義 ===
-class ToInt(T.AsType):
-    def __init__(self, dtype=int):  # np.int を int に変更
-        super().__init__(dtype)
-
 
 class ReplayBuffer:
     def __init__(self, buffer_size, batch_size):
