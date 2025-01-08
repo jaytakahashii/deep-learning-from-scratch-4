@@ -1,8 +1,9 @@
 import copy
 from collections import deque
 import random
+import matplotlib.pyplot as plt
 import numpy as np
-import gym
+import gymnasium as gym
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -25,7 +26,7 @@ class ReplayBuffer:
         data = random.sample(self.buffer, self.batch_size)
 
         state = torch.tensor(np.stack([x[0] for x in data]))
-        action = torch.tensor(np.array([x[1] for x in data]).astype(np.long))
+        action = torch.tensor(np.array([x[1] for x in data]).astype(np.int64))
         reward = torch.tensor(np.array([x[2] for x in data]).astype(np.float32))
         next_state = torch.tensor(np.stack([x[3] for x in data]))
         done = torch.tensor(np.array([x[4] for x in data]).astype(np.int32))
@@ -96,18 +97,19 @@ class DQNAgent:
 
 episodes = 300
 sync_interval = 20
-env = gym.make('CartPole-v0')
+env = gym.make('CartPole-v1', render_mode='human')
 agent = DQNAgent()
 reward_history = []
 
 for episode in range(episodes):
-    state = env.reset()
+    state, info = env.reset()
     done = False
     total_reward = 0
 
     while not done:
         action = agent.get_action(state)
-        next_state, reward, done, info = env.step(action)
+        next_state, reward, done, truncated, info = env.step(action)
+        done = done or truncated
 
         agent.update(state, action, reward, next_state, done)
         state = next_state
@@ -119,3 +121,24 @@ for episode in range(episodes):
     reward_history.append(total_reward)
     if episode % 10 == 0:
         print("episode :{}, total reward : {}".format(episode, total_reward))
+
+# === Plot ===
+plt.xlabel('Episode')
+plt.ylabel('Total Reward')
+plt.plot(range(len(reward_history)), reward_history)
+plt.show()
+
+# === Play CartPole ===
+agent.epsilon = 0  # greedy policy
+state, info = env.reset()  # state と info をアンパック
+done = False
+total_reward = 0
+
+while not done:
+    action = agent.get_action(state)
+    next_state, reward, done, truncated, info = env.step(action)
+    done = done or truncated  # エピソード終了条件
+    state = next_state
+    total_reward += reward
+    env.render()
+print('Total Reward:', total_reward)
