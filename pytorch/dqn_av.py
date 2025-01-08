@@ -1,3 +1,13 @@
+import torch
+
+# GPUが使えるかどうかを最初に確認
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+    print(f"CUDA is available! Using GPU: {torch.cuda.get_device_name(0)}")
+else:
+    device = torch.device("cpu")
+    print("CUDA is not available. Using CPU.")
+
 import os
 import copy
 from collections import deque
@@ -5,7 +15,6 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 import gymnasium as gym
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -50,7 +59,7 @@ class QNet(nn.Module):
 
 
 class DQNAgent:
-    def __init__(self):
+    def __init__(self, device):
         self.gamma = 0.98
         self.lr = 0.0005
         self.epsilon = 0.1
@@ -58,16 +67,18 @@ class DQNAgent:
         self.batch_size = 32
         self.action_size = 2
 
+        self.device = device
+
         self.replay_buffer = ReplayBuffer(self.buffer_size, self.batch_size)
-        self.qnet = QNet(self.action_size)
-        self.qnet_target = QNet(self.action_size)
+        self.qnet = QNet(self.action_size).to(self.device)
+        self.qnet_target = QNet(self.action_size).to(self.device)
         self.optimizer = optim.Adam(self.qnet.parameters(), lr=self.lr)
 
     def get_action(self, state):
         if np.random.rand() < self.epsilon:
             return np.random.choice(self.action_size)
         else:
-            state = torch.tensor(state[np.newaxis, :])
+            state = torch.tensor(state[np.newaxis, :], dtype=torch.float32).to(self.device)
             qs = self.qnet(state)
             return qs.argmax().item()
 
@@ -77,13 +88,20 @@ class DQNAgent:
             return
 
         state, action, reward, next_state, done = self.replay_buffer.get_batch()
+
+        # デバイスにテンソルを移動
+        state = state.to(self.device)
+        next_state = next_state.to(self.device)
+        action = action.to(self.device)
+        reward = reward.to(self.device)
+        done = done.to(self.device)
+
         qs = self.qnet(state)
         q = qs[np.arange(len(action)), action]
 
         next_qs = self.qnet_target(next_state)
         next_q = next_qs.max(1)[0]
 
-        next_q.detach()
         target = reward + (1 - done) * self.gamma * next_q
 
         loss_fn = nn.MSELoss()
@@ -102,7 +120,9 @@ episodes = 300
 sync_interval = 20
 num_experiments = 3
 env = gym.make('CartPole-v1', render_mode='human')
-agent = DQNAgent()
+
+# GPU対応
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 保存ディレクトリ作成
 current_time = datetime.now().strftime("%Y%m%d_%H%M")
@@ -113,6 +133,8 @@ all_rewards = []  # 全実験の報酬履歴
 
 for experiment in range(num_experiments):
     reward_history = []  # 各実験の報酬履歴
+    # エージェントをGPU対応
+    agent = DQNAgent(device)
     for episode in range(episodes):
         state, info = env.reset()  # state と info をアンパック
         done = False
