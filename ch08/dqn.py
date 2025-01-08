@@ -3,11 +3,17 @@ from collections import deque
 import random
 import matplotlib.pyplot as plt
 import numpy as np
-import gym
+import gymnasium as gym
 from dezero import Model
 from dezero import optimizers
 import dezero.functions as F
 import dezero.layers as L
+import dezero.transforms as T
+
+# === ToInt クラスを再定義 ===
+class ToInt(T.AsType):
+    def __init__(self, dtype=int):  # np.int を int に変更
+        super().__init__(dtype)
 
 
 class ReplayBuffer:
@@ -95,18 +101,19 @@ class DQNAgent:
 
 episodes = 300
 sync_interval = 20
-env = gym.make('CartPole-v0')
+env = gym.make('CartPole-v1', render_mode='human')
 agent = DQNAgent()
 reward_history = []
 
 for episode in range(episodes):
-    state = env.reset()
+    state, info = env.reset()  # state と info をアンパック
     done = False
     total_reward = 0
 
     while not done:
         action = agent.get_action(state)
-        next_state, reward, done, info = env.step(action)
+        next_state, reward, done, truncated, info = env.step(action)
+        done = done or truncated  # エピソード終了条件
 
         agent.update(state, action, reward, next_state, done)
         state = next_state
@@ -126,16 +133,16 @@ plt.ylabel('Total Reward')
 plt.plot(range(len(reward_history)), reward_history)
 plt.show()
 
-
 # === Play CartPole ===
 agent.epsilon = 0  # greedy policy
-state = env.reset()
+state, info = env.reset()  # state と info をアンパック
 done = False
 total_reward = 0
 
 while not done:
     action = agent.get_action(state)
-    next_state, reward, done, info = env.step(action)
+    next_state, reward, done, truncated, info = env.step(action)
+    done = done or truncated  # エピソード終了条件
     state = next_state
     total_reward += reward
     env.render()
