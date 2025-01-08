@@ -116,7 +116,7 @@ class DQNAgent:
 
 
 # 実験パラメータ
-episodes = 300
+episodes = 200
 sync_interval = 20
 num_experiments = 3
 env = gym.make('CartPole-v1', render_mode='human')
