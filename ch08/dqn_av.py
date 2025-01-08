@@ -1,3 +1,4 @@
+import os
 import copy
 from collections import deque
 import random
@@ -8,13 +9,6 @@ from dezero import Model
 from dezero import optimizers
 import dezero.functions as F
 import dezero.layers as L
-import dezero.transforms as T
-
-# === ToInt クラスを再定義 ===
-class ToInt(T.AsType):
-    def __init__(self, dtype=int):  # np.int を int に変更
-        super().__init__(dtype)
-
 
 class ReplayBuffer:
     def __init__(self, buffer_size, batch_size):
@@ -35,7 +29,7 @@ class ReplayBuffer:
         action = np.array([x[1] for x in data])
         reward = np.array([x[2] for x in data])
         next_state = np.stack([x[3] for x in data])
-        done = np.array([x[4] for x in data]).astype(int)
+        done = np.array([x[4] for x in data]).astype(np.int32)
         return state, action, reward, next_state, done
 
 
@@ -99,16 +93,22 @@ class DQNAgent:
     def sync_qnet(self):
         self.qnet_target = copy.deepcopy(self.qnet)
 
+
+# 実験パラメータ
 episodes = 300
 sync_interval = 20
+num_experiments = 3
 env = gym.make('CartPole-v1', render_mode='human')
 agent = DQNAgent()
-reward_history = []
 
-num_experiments = 5
-all_rewards = [] # 全エピソードの報酬を保存するリスト
+# 保存ディレクトリ作成
+save_dir = "graphs"
+os.makedirs(save_dir, exist_ok=True)
+
+all_rewards = []  # 全実験の報酬履歴
 
 for experiment in range(num_experiments):
+    reward_history = []  # 各実験の報酬履歴
     for episode in range(episodes):
         state, info = env.reset()  # state と info をアンパック
         done = False
@@ -127,59 +127,32 @@ for experiment in range(num_experiments):
             agent.sync_qnet()
 
         reward_history.append(total_reward)
-        if episode % 10 == 0:
-            print("episode :{}, total reward : {}".format(episode, total_reward))
+
     all_rewards.append(reward_history)
 
-mean_rewards = np.mean(all_rewards, axis=0)
-
-# グラフを描画
-plt.xlabel('Episode')
-plt.ylabel('Average Total Reward')
-plt.plot(range(len(mean_rewards)), mean_rewards)
-plt.show()
+    # 各実験のグラフを保存
+    plt.figure()
+    plt.plot(range(episodes), reward_history)
+    plt.xlabel('Episode')
+    plt.ylabel('Total Reward')
+    plt.title(f'Experiment {experiment + 1}')
+    plt.savefig(f"{save_dir}/{experiment + 1:02d}.png")
+    plt.close()
 
 # 各エピソードにおける平均報酬、標準偏差を計算
 mean_rewards = np.mean(all_rewards, axis=0)
 std_rewards = np.std(all_rewards, axis=0)
 
-# 信頼区間を計算 (95%信頼区間を例とする)
+# 信頼区間を計算 (95%信頼区間)
 confidence_interval = 1.96 * std_rewards / np.sqrt(num_experiments)
 
-# グラフを描画
-plt.figure(figsize=(12, 6))
-
-# 平均報酬のグラフ
-plt.subplot(2, 2, 1)
-plt.plot(range(len(mean_rewards)), mean_rewards, label='Mean')
-plt.fill_between(range(len(mean_rewards)), mean_rewards - confidence_interval, mean_rewards + confidence_interval, alpha=0.2, label='95% CI')
+# 平均報酬と信頼区間のグラフを保存
+plt.figure()
+plt.plot(range(episodes), mean_rewards, label='Mean')
+plt.fill_between(range(episodes), mean_rewards - confidence_interval, mean_rewards + confidence_interval, alpha=0.2, label='95% CI')
 plt.xlabel('Episode')
 plt.ylabel('Average Total Reward')
 plt.legend()
-
-# ヒストグラム (最後のエピソードの報酬)
-plt.subplot(2, 2, 2)
-plt.hist(all_rewards[:, -1], bins=20)
-plt.xlabel('Total Reward')
-plt.ylabel('Frequency')
-
-# 箱ひげ図 (最後のエピソードの報酬)
-plt.subplot(2, 2, 3)
-plt.boxplot(all_rewards[:, -1])
-
-plt.tight_layout()
-plt.show()
-# === Play CartPole ===
-agent.epsilon = 0  # greedy policy
-state, info = env.reset()  # state と info をアンパック
-done = False
-total_reward = 0
-
-while not done:
-    action = agent.get_action(state)
-    next_state, reward, done, truncated, info = env.step(action)
-    done = done or truncated  # エピソード終了条件
-    state = next_state
-    total_reward += reward
-    env.render()
-print('Total Reward:', total_reward)
+plt.title('Average Reward with 95% Confidence Interval')
+plt.savefig(f"{save_dir}/average_reward.png")
+plt.close()
