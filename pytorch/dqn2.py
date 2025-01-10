@@ -100,7 +100,7 @@ class DQNAgent:
 
 episodes = 1000
 sync_interval = 100  # 同期間隔を長くする
-env = gym.make('CartPole-v1')
+env = gym.make('CartPole-v1', render_mode='human')
 agent = DQNAgent()
 reward_history = []
 
