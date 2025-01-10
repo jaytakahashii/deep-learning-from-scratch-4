@@ -118,7 +118,7 @@ class DQNAgent:
 # 実験パラメータ
 episodes = 200
 sync_interval = 20
-num_experiments = 3
+num_experiments = 10
 env = gym.make('CartPole-v1', render_mode='human')
 
 # GPU対応
